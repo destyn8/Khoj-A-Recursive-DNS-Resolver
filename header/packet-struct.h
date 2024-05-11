@@ -30,17 +30,22 @@ struct header{
     uint16_t ARCOUNT;//NO. OF ADDITIONAL RECORDS [RR]
 };
 struct question{
-    char qName[256];
     uint16_t qType;
     uint16_t qClass;
 };
-struct RR{
+struct query{
+    char* qName;
+    struct question question;
+};
+struct resRecord{
     uint16_t type;
     uint16_t rrClass;
     uint32_t ttl;
     uint16_t rdLength;
     //RDATA is dependant on type, and rrClass
 };
-struct packet{
-    struct header header;
+struct record{
+    char* name;
+    struct resRecord* indRecord;
+    char* rdata;
 };
