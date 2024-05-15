@@ -1,6 +1,12 @@
 #include<stdio.h>
 #include<stdint.h>
-#include <endian.h>
+#include<endian.h>
+enum RR_TYPE{
+    RR_A = 1,
+    RR_AAAA = 28,
+    RR_NS = 2,
+    RR_CNAME = 5
+};
 struct header{
     uint16_t id;//IDENTIFICATION
 #   if __BYTE_ORDER == __BIG_ENDIAN        
@@ -34,18 +40,21 @@ struct question{
     uint16_t qClass;
 };
 struct query{
-    char* qName;
-    struct question question;
+    unsigned char* qName;//VIEW TO CHANGE
+    struct question question;  
 };
 struct resRecord{
     uint16_t type;
     uint16_t rrClass;
     uint32_t ttl;
     uint16_t rdLength;
-    //RDATA is dependant on type, and rrClass
 };
 struct record{
-    char* name;
+    unsigned char* name;
     struct resRecord* indRecord;
-    char* rdata;
+    unsigned char* rdata;
+};
+struct qPacket{
+    struct header header;
+    struct query query;
 };
