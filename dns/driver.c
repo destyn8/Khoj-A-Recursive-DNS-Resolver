@@ -2,11 +2,13 @@
 #include<stdlib.h>
 #include<sys/socket.h>
 #include<string.h>
-#include<netinet/in.h>//I HAVE ABSOLUTELY NO CLUE 
+#include<netinet/in.h>
+#include<arpa/inet.h>
 #include"../header/packet-struct.h"
 #include"../header/root-servers.h"
 #include<stdlib.h>
 #define PORT 53
+size_t packetLength = 0;
 uint8_t* encodeDname(char domainName[]){
     char *label;
     label = malloc(64);
@@ -15,7 +17,6 @@ uint8_t* encodeDname(char domainName[]){
     if (byteArr == NULL) {
         printf("Memory allocation failed\n");
     }
-    uint8_t zero = 0;
     uint8_t start_index = 0,k=0;
     size_t byteArrLen = 0;
     size_t totLen = 0;
@@ -36,40 +37,68 @@ uint8_t* encodeDname(char domainName[]){
             k++;
         }
     }
-    memcpy(byteArr+byteArrLen,&zero,1);
-    i=0;
     return byteArr;
 }
-struct question buildQuery(char domainName[],enum RR_TYPE record){
-    int id = (rand()%65683)+1;
-    struct qPacket queryPacket;
-    malloc(sizeof(queryPacket));
-    queryPacket.header.id = id;
-    queryPacket.header.rd = 1;
-    queryPacket.header.tc = 0;
-    queryPacket.header.aa = 0;
-    queryPacket.header.op = 0;
-    queryPacket.header.qr = 0;
-    queryPacket.header.rcode = 0;
-    queryPacket.header.z = 0;
-    queryPacket.header.ra = 0;
-    queryPacket.header.QDCOUNT = 1;
-    queryPacket.header.ANCOUNT = 0;
-    queryPacket.header.NSCOUNT = 0;
-    queryPacket.header.ARCOUNT = 0;
-    queryPacket.query.qName = encodeDname(domainName);
-    queryPacket.query.question.qType = record;
-    queryPacket.query.question.qClass = 1;//CLASS: IN
-}//VERIFIED
+uint8_t* buildQuery(char domainName[],enum RR_TYPE record){
+    uint8_t zero = 0;
+    int id = (rand()%65682)+1;
+    struct header header;
+    struct query query;
+    uint8_t* packetBuffer;
+    packetBuffer = malloc(512);
+    memset(packetBuffer, 0, sizeof(packetBuffer));
+    header.id = id;
+    header.rd = 1;
+    header.tc = 0;
+    header.aa = 0;
+    header.op = 0;
+    header.qr = 0;
+    header.rcode = 0;
+    header.z = 0;
+    header.ra = 0;
+    header.QDCOUNT = htons(1);
+    header.ANCOUNT = 0;
+    header.NSCOUNT = 0;
+    header.ARCOUNT = 0;
+    memcpy(packetBuffer,&header,sizeof(header));
+    packetLength+=sizeof(header);
+    query.qName = encodeDname(domainName);
+    memcpy(packetBuffer+packetLength,query.qName,strlen(query.qName));
+    packetLength+=strlen(query.qName);
+    memcpy(packetBuffer+packetLength,&zero,1);
+    packetLength+=1;
+    query.question.qType  = htons(record);
+    query.question.qClass = htons(1);//CLASS: IN
+    memcpy(packetBuffer+packetLength,&query.question.qType,2);
+    packetLength+=2;
+    memcpy(packetBuffer+packetLength,&query.question.qClass,sizeof(query.question.qClass));
+    return packetBuffer;
+}
 int main(){
-    int sockfd = socket(AF_INET,SOCK_DGRAM,0);
+    uint8_t* packetBuffer;
+    packetBuffer = malloc(512);
+    char domain[] = "www.google.in";
+    int sockfd = socket(AF_INET,SOCK_DGRAM,0); 
+    struct sockaddr_in socket;
     if (sockfd < 0){
         perror("Socket creation failed");
         return 1;
     }
-    printf("%s\n",ROOT_SERVER_A);//DEBUG CODE
-    char domain[] = "www.google.ac.in" ; 
-    buildQuery(domain,RR_A);
+    socket.sin_family = AF_INET;
+    socket.sin_port = htons(53);
+    if (inet_pton(AF_INET, "8.8.8.8", &socket.sin_addr) <= 0) {
+        perror("inet_pton failed");
+        exit(EXIT_FAILURE);
+    }
+    packetBuffer = buildQuery(domain,RR_A);
+    printf("\npacketLength:%d\n",packetLength);
+    size_t sent = sendto(sockfd,packetBuffer,packetLength+2,0,(struct sockaddr *)&socket,sizeof(socket));
+    int j;
+    for(j=0;j<33;j++){
+        printf("%2.2x",packetBuffer[j]);
+    }
+
+    printf("\n");
     return 0;
 }
 //uint8_t rd = 1<<8; //TRY IN CASE OF FALURE 
